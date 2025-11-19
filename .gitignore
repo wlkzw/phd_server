@@ -21,6 +21,8 @@ dist/
 # Environment
 .env
 .env.local
+# .env.development
+# .env.production
 
 # OS
 .DS_Store

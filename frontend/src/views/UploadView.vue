@@ -56,6 +56,7 @@
   import { computed, ref } from 'vue';
   import axios from 'axios';
   import { useRouter } from 'vue-router';
+  import { API_BASE_URL } from '@/config/api';
 
   const router = useRouter();
   const selectedFile = ref(null);
@@ -89,7 +90,7 @@
 
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/questdb/import',
+        `${API_BASE_URL}/api/questdb/import`,
         formData,
         {
           headers: {

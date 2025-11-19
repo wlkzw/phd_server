@@ -246,6 +246,7 @@
   import axios from 'axios';
   import { Chart, registerables } from 'chart.js';
   import 'chartjs-adapter-date-fns';
+  import { API_BASE_URL } from '@/config/api';
 
   Chart.register(...registerables);
 
@@ -303,7 +304,7 @@
       }
 
       const response = await axios.post(
-        `http://localhost:5000/api/questdb/chart-data/${projectNumber.value}`,
+        `${API_BASE_URL}/api/questdb/chart-data/${projectNumber.value}`,
         payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -435,7 +436,7 @@
 
     try {
       const response = await axios.post(
-        `http://localhost:5000/api/questdb/import-csv/${projectNumber.value}`,
+        `/api/questdb/import-csv/${projectNumber.value}`,
         formData,
         {
           headers: {
@@ -468,7 +469,7 @@
 
     try {
       const response = await axios.get(
-        `http://localhost:5000/api/questdb/table-detail/${projectNumber.value}`,
+        `${API_BASE_URL}/api/questdb/table-detail/${projectNumber.value}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -532,7 +533,7 @@
       }
 
       const response = await axios.post(
-        `http://localhost:5000/api/questdb/export-clc/${projectNumber.value}`,
+        `${API_BASE_URL}/api/questdb/export-clc/${projectNumber.value}`,
         payload,
         {
           headers: { Authorization: `Bearer ${token}` },

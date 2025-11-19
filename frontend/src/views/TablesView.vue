@@ -136,6 +136,7 @@
   import { onMounted, ref } from 'vue';
   import axios from 'axios';
   import { useRouter } from 'vue-router';
+  import { API_BASE_URL } from '@/config/api';
 
   const router = useRouter();
   const tables = ref([]);
@@ -164,12 +165,9 @@
     }
 
     try {
-      const response = await axios.get(
-        'http://localhost:5000/api/questdb/tables',
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await axios.get(`${API_BASE_URL}/api/questdb/tables`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.data?.success) {
         tables.value = response.data.tables ?? [];
       } else {
@@ -190,12 +188,9 @@
     }
 
     try {
-      const response = await axios.get(
-        'http://localhost:5000/api/user/permissions',
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const response = await axios.get(`${API_BASE_URL}/api/user/permissions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (response.data?.success) {
         isAdmin.value = response.data.is_admin ?? false;
       }
@@ -216,7 +211,7 @@
 
     try {
       const response = await axios.post(
-        'http://localhost:5000/api/questdb/create-table',
+        `${API_BASE_URL}/api/questdb/create-table`,
         { table_name: projectNumber.value },
         {
           headers: { Authorization: `Bearer ${token}` },

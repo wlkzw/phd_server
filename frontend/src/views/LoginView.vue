@@ -139,6 +139,7 @@
   import { ref } from 'vue';
   import axios from 'axios';
   import { useRouter } from 'vue-router';
+  import { API_BASE_URL } from '@/config/api';
 
   const router = useRouter();
   const username = ref('');
@@ -148,7 +149,7 @@
   const isLoggedIn = ref(false);
   const userInfo = ref({});
 
-  const API_BASE_URL = 'http://localhost:5000/api';
+  // const API_BASE_URL = '/api';
 
   const handleLogin = async () => {
     if (!username.value || !password.value) {
@@ -160,7 +161,7 @@
     errorMessage.value = '';
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/login`, {
+      const response = await axios.post(`${API_BASE_URL}/api/login`, {
         username: username.value,
         password: password.value,
       });
