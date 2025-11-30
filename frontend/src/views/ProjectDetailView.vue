@@ -217,21 +217,19 @@
 
           <div class="flex gap-3">
             <button
-              @click="loadChartData"
-              :disabled="selectedTags.length === 0 || isLoadingChart"
-              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              type="button"
+              @click="showUploadModal = false"
+              class="flex-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <span v-if="!isLoadingChart">Show Chart</span>
-              <span v-else>Loading…</span>
+              Cancel
             </button>
-
             <button
-              @click="exportCLC"
-              :disabled="selectedTags.length === 0 || isExporting"
-              class="rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+              type="submit"
+              :disabled="!selectedFile || isUploading"
+              class="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span v-if="!isExporting">Export CLC File</span>
-              <span v-else>Exporting…</span>
+              <span v-if="!isUploading">Upload</span>
+              <span v-else>Uploading…</span>
             </button>
           </div>
         </form>
