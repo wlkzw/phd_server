@@ -232,26 +232,6 @@
               <span v-else>Uploading…</span>
             </button>
           </div>
-
-          <!-- <div class="flex gap-3">
-            <button
-              @click="loadChartData"
-              :disabled="selectedTags.length === 0 || isLoadingChart"
-              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span v-if="!isLoadingChart">Show Chart</span>
-              <span v-else>Loading…</span>
-            </button>
-
-            <button
-              @click="exportCLC"
-              :disabled="selectedTags.length === 0 || isExporting"
-              class="rounded-lg border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <span v-if="!isExporting">Export CLC File</span>
-              <span v-else>Exporting…</span>
-            </button>
-          </div> -->
         </form>
       </div>
     </div>
