@@ -11,7 +11,7 @@ import csv
 import io
 import re
 import requests
-from script.csv_parser import _read_file_content, _parse_csv_format
+from script.csv_parser import _read_file_content, _parse_csv_format, parse_file, parse_sql_content
 
 app = Flask(__name__)
 CORS(app)
@@ -32,23 +32,6 @@ app.config.update(
 )
 
 TLS = Tls(validate=CERT_NONE)
-
-SQL_PATTERN = re.compile(
-    r"\(\s*(?P<id>-?\d+)\s*,\s*'(?P<name>(?:[^'\\]|\\.)*)'\s*,\s*(?P<value>-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-]?\d+)?)\s*,\s*'(?P<time>[^']+)'\s*,\s*(?P<status>-?\d+)\s*,\s*'(?P<dcstime>[^']+)'\s*\)"
-)
-
-def _sql_to_csv(sql_text: str) -> tuple[str, int]:
-    buffer = io.StringIO()
-    writer = csv.writer(buffer)
-    writer.writerow(["Name", "Value", "Time::timestamp"])
-    count = 0
-    for match in SQL_PATTERN.finditer(sql_text):
-        name = match.group("name")
-        value = match.group("value")
-        iso_time = match.group("time").replace(" ", "T") + ".000000Z"
-        writer.writerow([name, value, iso_time])
-        count += 1
-    return buffer.getvalue(), count
 
 def _ldap_bind(username: str, password: str) -> tuple[bool, dict | None]:
     server = Server(
@@ -371,30 +354,6 @@ def login():
 def profile():
     return jsonify(success=True, username=request.user), 200
 
-@app.post("/api/questdb/import")
-@_auth_required
-def questdb_import():
-    uploaded = request.files.get("file")
-    if not uploaded:
-        return jsonify(success=False, message="缺少上传文件"), 400
-
-    sql_text = uploaded.read().decode("utf-8", errors="ignore")
-    csv_payload, rows = _sql_to_csv(sql_text)
-
-    try:
-        response = requests.post(
-            app.config["QUESTDB_IMPORT_URL"],
-            params={"fmt": "csv"},
-            files={"data": ("import.csv", csv_payload, "text/csv")},
-            timeout=30,
-        )
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        app.logger.error("QuestDB import failed for %s: %s", request.user, exc)
-        return jsonify(success=False, message="QuestDB 导入失败"), 502
-
-    return jsonify(success=True, imported=rows), 200
-
 @app.get("/api/questdb/tables")
 @_auth_required
 def questdb_tables():
@@ -468,7 +427,7 @@ def questdb_table_detail(table_name: str):
 @app.post("/api/questdb/import-csv/<table_name>")
 @_auth_required
 def questdb_import_csv(table_name: str):
-    """导入 CSV/Excel 文件到指定表"""
+    """导入 CSV/Excel/SQL 文件到指定表"""
     uploaded = request.files.get("file")
     if not uploaded:
         return jsonify(success=False, message="缺少上传文件"), 400
@@ -477,14 +436,15 @@ def questdb_import_csv(table_name: str):
     import tempfile
     import os
     
-    temp_fd, temp_path = tempfile.mkstemp(suffix=os.path.splitext(uploaded.filename)[1])
+    file_ext = os.path.splitext(uploaded.filename)[1].lower()
+    temp_fd, temp_path = tempfile.mkstemp(suffix=file_ext)
+    
     try:
         with os.fdopen(temp_fd, 'wb') as f:
             f.write(uploaded.read())
         
-        # 读取并解析文件
-        rows = _read_file_content(temp_path)
-        parsed_data = _parse_csv_format(rows, debug=False)
+        # 使用统一的解析函数
+        parsed_data = parse_file(temp_path, debug=False)
         
         if not parsed_data:
             return jsonify(success=False, message="文件中没有有效数据"), 400
@@ -511,7 +471,7 @@ def questdb_import_csv(table_name: str):
         return jsonify(success=True, imported=len(parsed_data)), 200
         
     except ValueError as e:
-        app.logger.error("CSV parse failed for %s: %s", request.user, e)
+        app.logger.error("File parse failed for %s: %s", request.user, e)
         return jsonify(success=False, message=f"文件格式错误: {str(e)}"), 400
     except requests.RequestException as exc:
         app.logger.error("QuestDB import failed for %s: %s", request.user, exc)

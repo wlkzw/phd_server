@@ -4,7 +4,6 @@ import re
 from datetime import datetime
 import openpyxl
 
-
 def _read_file_content(filepath: str) -> list[list[str]]:
     """
     读取 CSV 或 Excel 文件，返回行列表
@@ -35,7 +34,154 @@ def _read_file_content(filepath: str) -> list[list[str]]:
         raise ValueError(f"无法识别文件编码: {filepath}")
 
 
+def _read_sql_file(filepath: str) -> str:
+    """
+    读取 SQL 文件内容
+    """
+    encodings = ['utf-8', 'gbk', 'gb2312', 'utf-16', 'latin1']
+    
+    for encoding in encodings:
+        try:
+            with open(filepath, 'r', encoding=encoding) as f:
+                return f.read()
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    
+    raise ValueError(f"无法识别文件编码: {filepath}")
+
+
+def _parse_sql_dump(sql_content: str, debug: bool = False) -> list[dict]:
+    """
+    解析 MySQL dump SQL 文件，提取 INSERT 语句中的数据
+    表结构: id, Name, Value, Time, Status, DcsTime
+    
+    返回统一的数据结构:
+    [{"Name": "tag1", "Value": 123.45, "Time": "2024-01-01T00:00:00.000000Z"}, ...]
+    """
+    result = []
+    
+    # 匹配 INSERT 语句的正则表达式
+    # 支持多种格式:
+    # INSERT INTO `table` VALUES (id, 'Name', Value, 'Time', Status, 'DcsTime');
+    # INSERT INTO table (id, Name, Value, Time, Status, DcsTime) VALUES (...);
+    
+    # 匹配单个值元组的模式
+    # (id, 'Name', Value, 'Time', Status, 'DcsTime')
+    value_pattern = re.compile(
+        r"\(\s*"
+        r"(?P<id>-?\d+)\s*,\s*"                           # id (bigint)
+        r"'(?P<name>(?:[^'\\]|\\.)*)'\s*,\s*"             # Name (varchar)
+        r"(?P<value>-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-]?\d+)?|NULL)\s*,\s*"  # Value (float)
+        r"'(?P<time>[^']+)'\s*,\s*"                       # Time (datetime)
+        r"(?P<status>-?\d+|NULL)\s*,\s*"                  # Status (int)
+        r"'(?P<dcstime>[^']*)'"                           # DcsTime (datetime)
+        r"\s*\)",
+        re.IGNORECASE
+    )
+    
+    # 也支持没有引号的数值格式
+    value_pattern_alt = re.compile(
+        r"\(\s*"
+        r"(?P<id>-?\d+)\s*,\s*"
+        r"['\"]?(?P<name>[^'\",]+)['\"]?\s*,\s*"
+        r"(?P<value>-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+\-]?\d+)?|NULL)\s*,\s*"
+        r"['\"]?(?P<time>[^'\"]+)['\"]?\s*,\s*"
+        r"(?P<status>-?\d+|NULL)\s*,\s*"
+        r"['\"]?(?P<dcstime>[^'\")]*)['\"]?"
+        r"\s*\)",
+        re.IGNORECASE
+    )
+    
+    if debug:
+        print(f"[DEBUG] SQL 内容长度: {len(sql_content)} 字符")
+        # 显示前 500 字符
+        print(f"[DEBUG] SQL 前 500 字符:\n{sql_content[:500]}")
+    
+    # 查找所有 INSERT 语句
+    insert_pattern = re.compile(r"INSERT\s+INTO\s+[`'\"]?\w+[`'\"]?\s*(?:\([^)]+\))?\s*VALUES\s*", re.IGNORECASE)
+    
+    # 分割并处理每个 INSERT 语句
+    matches = list(value_pattern.finditer(sql_content))
+    
+    if debug:
+        print(f"[DEBUG] 使用主模式找到 {len(matches)} 个匹配")
+    
+    # 如果主模式没有匹配，尝试备用模式
+    if not matches:
+        matches = list(value_pattern_alt.finditer(sql_content))
+        if debug:
+            print(f"[DEBUG] 使用备用模式找到 {len(matches)} 个匹配")
+    
+    for i, match in enumerate(matches):
+        try:
+            name = match.group("name")
+            value_str = match.group("value")
+            time_str = match.group("time")
+            
+            # 跳过 NULL 值
+            if value_str.upper() == 'NULL':
+                continue
+            
+            # 处理转义字符
+            name = name.replace("\\'", "'").replace("\\\\", "\\")
+            
+            # 解析数值
+            value = float(value_str)
+            
+            # 标准化时间戳
+            timestamp = _normalize_timestamp(time_str)
+            
+            result.append({
+                "Name": name.strip(),
+                "Value": value,
+                "Time": timestamp
+            })
+            
+            if debug and i < 5:
+                print(f"[DEBUG] 记录 {i}: Name={name}, Value={value}, Time={timestamp}")
+                
+        except (ValueError, AttributeError) as e:
+            if debug and i < 10:
+                print(f"[DEBUG] 记录 {i} 解析失败: {e}")
+            continue
+    
+    if debug:
+        print(f"[DEBUG] SQL dump 总计解析 {len(result)} 条记录\n")
+    
+    return result
+
+
+def parse_file(filepath: str, debug: bool = False) -> list[dict]:
+    """
+    统一的文件解析入口，根据文件扩展名自动选择解析方式
+    
+    支持格式:
+    - .csv: CSV 文件
+    - .xlsx/.xls: Excel 文件
+    - .sql: MySQL dump SQL 文件
+    
+    返回统一的数据结构:
+    [{"Name": "tag1", "Value": 123.45, "Time": "2024-01-01T00:00:00.000000Z"}, ...]
+    """
+    file_ext = filepath.lower().split('.')[-1]
+    
+    if file_ext == 'sql':
+        sql_content = _read_sql_file(filepath)
+        return _parse_sql_dump(sql_content, debug=debug)
+    else:
+        rows = _read_file_content(filepath)
+        return _parse_csv_format(rows, debug=debug)
+
+
+def parse_sql_content(sql_content: str, debug: bool = False) -> list[dict]:
+    """
+    直接解析 SQL 内容字符串（用于从内存中解析）
+    """
+    return _parse_sql_dump(sql_content, debug=debug)
+
+
 def _parse_csv_format(rows: list[list[str]], debug: bool = False) -> list[dict]:
+    # ...existing code...
     """
     解析四种 CSV/Excel 格式，返回统一的数据结构
     [{"Name": "tag1", "Value": 123.45, "Time": "2024-01-01T00:00:00.000000Z"}, ...]
@@ -57,7 +203,8 @@ def _parse_csv_format(rows: list[list[str]], debug: bool = False) -> list[dict]:
     has_index = False
     try:
         temp = int(rows[1][0])
-        print(f"[DEBUG] 第一列值尝试转换为整数: {temp}")
+        if debug:
+            print(f"[DEBUG] 第一列值尝试转换为整数: {temp}")
         if temp == 1:
             has_index = True
     except (ValueError, IndexError, TypeError):
@@ -195,10 +342,6 @@ def _parse_csv_format(rows: list[list[str]], debug: bool = False) -> list[dict]:
     
     return result
 
-
-
-
-
 def _is_timestamp(value: str) -> bool:
     """检查字符串是否为时间戳格式"""
     timestamp_patterns = [
@@ -241,14 +384,12 @@ def _normalize_timestamp(ts_str: str) -> str:
     except:
         raise ValueError(f"无法解析时间戳: {ts_str}")
 
+
 def test_from_file(filepath: str, debug: bool = True):
-    """从文件测试（支持 CSV 和 Excel）"""
+    """从文件测试（支持 CSV、Excel 和 SQL）"""
     try:
-        rows = _read_file_content(filepath)
+        result = parse_file(filepath, debug=debug)
         print(f"文件 {filepath}:")
-        print(f"  成功读取，共 {len(rows)} 行")
-        
-        result = _parse_csv_format(rows, debug=debug)
         print(f"  解析成功，共 {len(result)} 条记录")
         if result:
             print(f"  示例数据:")
@@ -262,19 +403,13 @@ def test_from_file(filepath: str, debug: bool = True):
 
 
 if __name__ == "__main__":
-    print("=== CSV/Excel 解析器测试 ===\n")
+    print("=== CSV/Excel/SQL 解析器测试 ===\n")
     
-    # 测试四种预定义格式
-    # test_format_1()
-    # test_format_2()
-    # test_format_3()
-    # test_format_4()
+    # 测试 SQL 解析
+    test_from_file("apc_tag_data_received.sql")
     
     # 测试实际文件
     # test_from_file("supcon-dcs.csv")
     # test_from_file("holysis-dcs.csv")
-    test_from_file("yogokawa-dcs.xlsx")
-    # test_from_file("锅炉dcs.xlsx")
-    
-    # 如果有 Excel 文件，也可以测试
-    # test_from_file("test.xlsx")
+    # test_from_file("yogokawa-dcs.xlsx")
+    # test_from_file("mysql_dump.sql")

@@ -197,12 +197,12 @@
         <form @submit.prevent="handleUpload" class="space-y-4">
           <div class="space-y-2">
             <label class="text-sm font-medium text-slate-700" for="csvFile">
-              Select CSV file
+              Select file (CSV, Excel, or SQL)
             </label>
             <input
               id="csvFile"
               type="file"
-              accept=".csv,.xlsx"
+              accept=".csv,.xlsx,.sql"
               @change="handleFileChange"
               class="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
             />
