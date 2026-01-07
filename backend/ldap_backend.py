@@ -27,8 +27,9 @@ app.config.update(
     LDAP_BIND_PASSWORD="Abcd1234",
     TOKEN_TTL_HOURS=24,
     ADMIN_USERS=["zhitong.jiang", "kaizhen.wu"],
-    QUESTDB_IMPORT_URL="http://10.0.0.233:9000/imp",
-    QUESTDB_EXEC_URL="http://10.0.0.233:9000/exec",
+    # *** for local testing, use 10.0.0.233 ***
+    QUESTDB_IMPORT_URL="http://127.0.0.1:9000/imp", 
+    QUESTDB_EXEC_URL="http://127.0.0.1:9000/exec",
     MAX_CONTENT_LENGTH=500 * 1024 * 1024,  # 500 MB
 )
 
