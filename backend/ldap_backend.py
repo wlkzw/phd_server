@@ -29,6 +29,7 @@ app.config.update(
     ADMIN_USERS=["zhitong.jiang", "kaizhen.wu"],
     QUESTDB_IMPORT_URL="http://10.0.0.233:9000/imp",
     QUESTDB_EXEC_URL="http://10.0.0.233:9000/exec",
+    MAX_CONTENT_LENGTH=500 * 1024 * 1024,  # 500 MB
 )
 
 TLS = Tls(validate=CERT_NONE)
